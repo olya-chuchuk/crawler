@@ -1,3 +1,4 @@
+package crawler;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
@@ -7,17 +8,27 @@ import java.util.regex.*;
 import javax.swing.*;
 import javax.swing.table.*;
 
-// The Search Web Crawler
+/**
+ * The search web crawler that performs search on websites
+ * @author olya-chuchuk
+ */
 public class SearchCrawler extends JFrame
 {
-  // Max URLs drop down values.
+  /**
+   * Max URLs drop down values.
+   */
   private static final String[] MAX_URLS =
     {"50", "100", "500", "1000"};
 
-  // Cache of robot disallow lists.
-  private HashMap<String, ArrayList<String>> disallowListCache = new HashMap<String, ArrayList<String>>();
+  /**
+   * Cache of robot disallow lists.
+   */
+  private HashMap<String, ArrayList<String>> disallowListCache =
+          new HashMap<String, ArrayList<String>>();
 
-  // Search GUI controls.
+  /**
+   * Search GUI controls.
+   */
   private JTextField startTextField;
   private JComboBox maxComboBox;
   private JTextField logTextField;
@@ -44,8 +55,10 @@ public class SearchCrawler extends JFrame
   // Matches log file print writer.
   private PrintWriter logFileWriter;
 
-  // Constructor for Search Web Crawler.
-  public SearchCrawler()
+  /**
+   * Constructor for Search Web Crawler.
+   */
+  private SearchCrawler()
   {
     // Set application title.
     setTitle("Search Crawler");
@@ -309,7 +322,9 @@ public class SearchCrawler extends JFrame
     System.exit(0);
   }
 
-  // Handle search/stop button being clicked.
+  /**
+   * Handle search/stop button being clicked.
+   */
   private void actionSearch() {
     // If stop button clicked, turn crawling flag off.
     if (crawling) {
@@ -321,19 +336,20 @@ public class SearchCrawler extends JFrame
 
     // Validate that start URL has been entered.
     String startUrl = startTextField.getText().trim();
-    // add / to the end
-    if(startUrl.charAt(startUrl.length()-1) != '/')
-    {
-  	  startUrl = startUrl + "/";
-    }
     if (startUrl.length() < 1) {
       errorList.add("Missing Start URL.");
+    } else {
+        // add / to the end
+        if(startUrl.charAt(startUrl.length()-1) != '/')
+        {
+      	  startUrl = startUrl + "/";
+        }
+        // Verify start URL.
+        if (WebTools.verifyUrl(startUrl) == null) {
+          errorList.add("Invalid Start URL.");
+        }
     }
-    // Verify start URL.
-    else if (verifyUrl(startUrl) == null) {
-      errorList.add("Invalid Start URL.");
-    }
-
+    
     // Validate that max URLs is either empty or is a number.
     int maxUrls = -1;
     String max = ((String) maxComboBox.getSelectedItem()).trim();
@@ -376,15 +392,22 @@ public class SearchCrawler extends JFrame
     }
 
     // Remove "www" from start URL if present.
-    startUrl = removeWwwFromUrl(startUrl); 
+    startUrl = WebTools.removeWwwFromUrl(startUrl); 
 
     // Start the search crawler.
     search(logFile, startUrl, maxUrls, searchString);
   }
 
+  /**
+   * Performs the actual search
+   * 
+   * @param logFile
+   * @param startUrl
+   * @param maxUrls
+   * @param searchString
+   */
   private void search(final String logFile, final String startUrl,
-    final int maxUrls, final String searchString)
-  {
+          final int maxUrls, final String searchString) {
     // Start the search in a new thread.
     Thread thread = new Thread(new Runnable() {
       public void run() {
@@ -474,13 +497,24 @@ public class SearchCrawler extends JFrame
     thread.start();
   }
 
-  // Show dialog box with error message.
+  /**
+   * Show dialog box with error message.
+   * 
+   * @param message
+   */
   private void showError(String message) {
     JOptionPane.showMessageDialog(this, message, "Error",
       JOptionPane.ERROR_MESSAGE);
   }
 
-  // Update crawling stats.
+  /**
+   * Update crawling stats.
+   * 
+   * @param crawling
+   * @param crawled
+   * @param toCrawl
+   * @param maxUrls
+   */
   private void updateStats(
     String crawling, int crawled, int toCrawl, int maxUrls)
   {
@@ -499,7 +533,11 @@ public class SearchCrawler extends JFrame
     matchesLabel2.setText("" + table.getRowCount());
   }
 
-  // Add match to matches table and log file.
+  /**
+   * Add match to matches table and log file.
+   * 
+   * @param url
+   */
   private void addMatch(String url) {
     // Add URL to matches table.
     DefaultTableModel model =
@@ -514,257 +552,27 @@ public class SearchCrawler extends JFrame
     }
   }
 
-  // Verify URL format.
-  private URL verifyUrl(String url) {
-    // Only allow HTTP URLs.
-    if (!url.toLowerCase().startsWith("http://"))
-      return null;
 
-    // Verify format of URL.
-    URL verifiedUrl = null;
-    try {
-      verifiedUrl = new URL(url);
-    } catch (Exception e) {
-      return null;
-    }
+  
 
-    return verifiedUrl;
-  }
+  
 
-  // Check if robot is allowed to access the given URL.
-  private boolean isRobotAllowed(URL urlToCheck) {
-    String host = urlToCheck.getHost().toLowerCase();
 
-    // Retrieve host's disallow list from cache.
-    ArrayList<String> disallowList =
-      (ArrayList) disallowListCache.get(host);
 
-    // If list is not in the cache, download and cache it.
-    if (disallowList == null) {
-      disallowList = new ArrayList<String>();
 
-      try {
-        URL robotsFileUrl =
-          new URL("http://" + host + "/robots.txt");
+  
 
-        // Open connection to robot file URL for reading.
-        BufferedReader reader =
-          new BufferedReader(new InputStreamReader(
-            robotsFileUrl.openStream()));
-
-        // Read robot file, creating list of disallowed paths.
-        String line;
-        while ((line = reader.readLine()) != null) {
-        	//System.out.println(line);
-          if (line.indexOf("Disallow:") == 0) {
-            String disallowPath =
-              line.substring("Disallow:".length());
-
-            // Check disallow path for comments and remove if present.
-            int commentIndex = disallowPath.indexOf("#");
-            if (commentIndex != - 1) {
-              disallowPath =
-                disallowPath.substring(0, commentIndex);
-            }
-
-            // Remove leading or trailing spaces from disallow path.
-            disallowPath = disallowPath.trim();
-
-            // Add disallow path to list.
-            if(disallowPath.length() != 0)
-            {
-            	disallowList.add(disallowPath);
-            }
-          }
-        }
-
-        // Add new disallow list to cache.
-        disallowListCache.put(host, disallowList);
-      }
-      catch (Exception e) {
-        /* Assume robot is allowed since an exception
-           is thrown if the robot file doesn't exist. */
-        return true;
-      }
-    }
-
-    /* Loop through disallow list to see if the
-       crawling is allowed for the given URL. */
-    String file = urlToCheck.getFile();
-    for (int i = 0; i < disallowList.size(); i++) {
-      String disallow = (String) disallowList.get(i);
-      if (file.startsWith(disallow)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  // Download page at given URL.
-  private String downloadPage(URL pageUrl) {
-     try {
-        // Open connection to URL for reading.
-        BufferedReader reader =
-          new BufferedReader(new InputStreamReader(
-            pageUrl.openStream(),"UTF-8"));
-
-        // Read page into buffer.
-        String line;
-        StringBuffer pageBuffer = new StringBuffer();
-        while ((line = reader.readLine()) != null) {
-        	/*Matcher m = p.matcher(line);
-        	while(m.find())
-        	{
-        		pageBuffer.append(m.group(1));
-        	}*/
-          pageBuffer.append(line);
-        }
-        return pageBuffer.toString();
-     } catch (Exception e) {
-     }
-
-     return null;
-  }
-
-  // Remove leading "www" from a URL's host if present.
-  private String removeWwwFromUrl(String url) {
-    int index = url.indexOf("://www.");
-    if (index != -1) {
-      return url.substring(0, index + 3) +
-        url.substring(index + 7);
-    }
-
-    return (url);
-  }
-
-  // Parse through page contents and retrieve links.
-  private ArrayList<String> retrieveLinks(
-    URL pageUrl, String pageContents, HashSet<String> crawledList)
-  {
-    // Compile link matching pattern.
-    Pattern p =
-      Pattern.compile("<a\\s+href\\s*=\\s*\"?(.*?)[\"|>]", // for example <a href="http://mi.unicyb.kiev.ua/ru/">
-        Pattern.CASE_INSENSITIVE);
-    Matcher m = p.matcher(pageContents);
-
-    // Create list of link matches.
-    ArrayList<String> linkList = new ArrayList<String>();
-    while (m.find()) {
-      String link = m.group(1).trim();
-
-      // Skip empty links.
-      if (link.length() < 1) {
-        continue;
-      }
-
-      // Skip links that are just page anchors.
-      if (link.charAt(0) == '#') {
-        continue;
-      }
-
-      // Skip mailto links.
-      if (link.indexOf("mailto:") != -1) {
-        continue;
-      }
-
-      // Skip JavaScript links.
-      if (link.toLowerCase().indexOf("javascript") != -1) {
-        continue;
-      }
-
-      // Prefix absolute and relative URLs if necessary.
-      if (link.indexOf("://") == -1) {
-        // Handle absolute URLs.
-        if (link.charAt(0) == '/') {
-          link = "http://" + pageUrl.getHost() + link;
-        // Handle relative URLs.
-        } else {
-          String file = pageUrl.getFile();
-          if (file.indexOf('/') == -1) {
-            link = "http://" + pageUrl.getHost() + "/" + link;
-          } else {
-            String path =
-              file.substring(0, file.lastIndexOf('/') + 1);
-            link = "http://" + pageUrl.getHost() + path + link;
-          }
-        }
-      }
-
-      // Remove anchors from link.
-      int index = link.indexOf('#');
-      if (index != -1) {
-        link = link.substring(0, index);
-      }
-
-      // Remove leading "www" from URL's host if present.
-      link = removeWwwFromUrl(link);
-      
-      link = link.trim();
-      
-      // add / to the end
-      if(link.charAt(link.length()-1) != '/')
-      {
-    	  link = link + "/";
-      }
-
-      // Verify link and skip if invalid.
-      URL verifiedLink = verifyUrl(link);
-      if (verifiedLink == null) {
-        continue;
-      }
-
-      // Skip link if it has already been crawled.
-      if (crawledList.contains(link)) {
-        continue;
-      }
-
-      // Add link to list.
-      linkList.add(link);
-    }
-
-    return (linkList);
-  }
-
-  /* Determine whether or not search string is
-     matched in the given page contents. */
-  private boolean searchStringMatches(
-    String pageContents, String searchString,
-    boolean caseSensitive)
-  {
-    String searchContents = pageContents;
-
-    /* If case sensitive search, lowercase
-       page contents for comparison. */
-    if (!caseSensitive) {
-      searchContents = pageContents.toLowerCase();
-    }
-
-    // Split search string into individual terms.
-    Pattern p = Pattern.compile("[\\s]+");
-    String[] terms = p.split(searchString);
-
-    // Check to see if each term matches.
-    for (int i = 0; i < terms.length; i++) {
-      if (caseSensitive) {
-        if (searchContents.indexOf(terms[i]) == -1) {
-          return false;
-        }
-      } else {
-        if (searchContents.indexOf(terms[i].toLowerCase()) == -1) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  }
-
-  // Perform the actual crawling, searching for the search string.
-  public void crawl(
-    String startUrl, int maxUrls,
-    String searchString, boolean caseSensitive)
-  {
+  /**
+   * Perform the actual crawling, searching for the search string.
+   * Uses algorithm BFS.
+   * 
+   * @param startUrl
+   * @param maxUrls
+   * @param searchString
+   * @param caseSensitive
+   */
+    private void crawl(String startUrl, int maxUrls,
+            String searchString, boolean caseSensitive) {
     // Setup crawl lists.
     HashSet<String> crawledList = new HashSet<String>();
     LinkedHashSet<String> toCrawlList = new LinkedHashSet<String>();
@@ -791,10 +599,10 @@ public class SearchCrawler extends JFrame
       toCrawlList.remove(url);
 
       // Convert string url to URL object.
-      URL verifiedUrl = verifyUrl(url);
+      URL verifiedUrl = WebTools.verifyUrl(url);
 
       // Skip URL if robots are not allowed to access it.
-      if (!isRobotAllowed(verifiedUrl)) {
+      if (!WebTools.isRobotAllowed(verifiedUrl, disallowListCache)) {
         continue;
       }
 
@@ -806,7 +614,7 @@ public class SearchCrawler extends JFrame
       crawledList.add(url);
 
       // Download the page at the given url.
-      String pageContents = downloadPage(verifiedUrl);
+      String pageContents = WebTools.downloadPage(verifiedUrl);
      // System.out.println(pageContents);
 
       /* If the page was downloaded successfully, retrieve all of its
@@ -815,14 +623,14 @@ public class SearchCrawler extends JFrame
       {
         // Retrieve list of valid links from page.
         ArrayList links =
-          retrieveLinks(verifiedUrl, pageContents, crawledList);
+          WebTools.retrieveLinks(verifiedUrl, pageContents, crawledList);
 
         // Add links to the to crawl list.
         toCrawlList.addAll(links);
 
         /* Check if search string is present in
            page and if so record a match. */
-        if (searchStringMatches(pageContents, searchString,
+        if (WebTools.searchStringMatches(pageContents, searchString,
              caseSensitive))
         {
           addMatch(url);
@@ -835,10 +643,16 @@ public class SearchCrawler extends JFrame
     }
   }
   
-  // Crawling for the algorithm R2
-  public void adaptiveCrawlR2(String startUrl, int maxUrls, 
-  String searchString, boolean caseSensitive)
-  {
+  /**
+   * Performs crawling for the algorithm R2
+   * 
+   * @param startUrl
+   * @param maxUrls
+   * @param searchString
+   * @param caseSensitive
+   */
+    private void adaptiveCrawlR2(String startUrl, int maxUrls,
+            String searchString, boolean caseSensitive) {
 	  	// Setup crawl lists.
 	    HashSet<String> crawledList = new HashSet<String>();
 	    HashMap<String,LinkedHashSet<String>> toCrawlList = new HashMap<String,LinkedHashSet<String>>();
@@ -849,7 +663,7 @@ public class SearchCrawler extends JFrame
 	    int toCrawlSize = 0;
 	    
 	    // Add start URL to the to crawl list.
-	    String host = verifyUrl(startUrl).getHost();
+	    String host = WebTools.verifyUrl(startUrl).getHost();
 	    System.out.println("Start host " + host);
 	    if(toCrawlList.containsKey(host))
 	    {
@@ -892,7 +706,7 @@ public class SearchCrawler extends JFrame
 	    	int remainsNew = 5;
 	    	for(LinkedHashSet toCrawl:toCrawlList.values())
 	    	{
-	    		host = verifyUrl((String)toCrawl.iterator().next()).getHost();
+	    		host = WebTools.verifyUrl((String)toCrawl.iterator().next()).getHost();
 	    		double index = GittinsIndex.get(host);
 	    		int crawled = crawledAtHost.get(host);
 	    		if(crawled != 0 && index < maxGittins)
@@ -921,8 +735,8 @@ public class SearchCrawler extends JFrame
 	    			System.out.println("URL " + url);
 	    			crawledAtHost.put(host, crawledAtHost.get(host) + 1);
 	    			toCrawl.remove(url);
-	    		    URL verifiedUrl = verifyUrl(url);
-	    		    if (!isRobotAllowed(verifiedUrl)) 
+	    		    URL verifiedUrl = WebTools.verifyUrl(url);
+	    		    if (!WebTools.isRobotAllowed(verifiedUrl, disallowListCache)) 
 	    		    {
 	    		    	System.out.println("Not Robot Allowed");
 	    		    	continue;
@@ -934,7 +748,7 @@ public class SearchCrawler extends JFrame
 	    		    crawledList.add(url);
 
 	    		    // Download the page at the given url.
-	    		    String pageContents = downloadPage(verifiedUrl);
+	    		    String pageContents = WebTools.downloadPage(verifiedUrl);
 
 	    		    /* If the page was downloaded successfully, retrieve all of its
 	    		     links and then see if it contains the search string. */
@@ -942,13 +756,13 @@ public class SearchCrawler extends JFrame
 	    		    {
 	    		    	// Retrieve list of valid links from page.
 	    		        ArrayList<String> links =
-	    		          retrieveLinks(verifiedUrl, pageContents, crawledList);
+	    		          WebTools.retrieveLinks(verifiedUrl, pageContents, crawledList);
 
 	    		        // Add links to the to crawl list.
 	    		        toCrawlSize += links.size();
 	    		        for(int i = 0;i<links.size();++i)
 	    		        {
-	    		        	String newHost = verifyUrl(links.get(i)).getHost();
+	    		        	String newHost = WebTools.verifyUrl(links.get(i)).getHost();
 	    		        	if(toCrawlList.get(newHost) != null)
 	    		        	{
 	    		        		toCrawlList.get(newHost).add(links.get(i));
@@ -961,7 +775,7 @@ public class SearchCrawler extends JFrame
 
 	    		        /* Check if search string is present in
 	    		           page and if so record a match. */
-	    		        if (searchStringMatches(pageContents, searchString,
+	    		        if (WebTools.searchStringMatches(pageContents, searchString,
 	    		             caseSensitive))
 	    		        {
 	    		          addMatch(url);
@@ -975,7 +789,7 @@ public class SearchCrawler extends JFrame
 	    	}
 	    	for(String h : toCrawlToAddList)
 	    	{
-	    		String newHost = verifyUrl(h).getHost();
+	    		String newHost = WebTools.verifyUrl(h).getHost();
 	    		if(toCrawlList.get(newHost) != null)
 	        	{
 	        		toCrawlList.get(newHost).add(h);
@@ -1001,9 +815,13 @@ public class SearchCrawler extends JFrame
 	    }
   }
 
-  // Run the Search Crawler.
-public static void main(String[] args) {
+  /**
+   *  Run the Search Crawler.
+   *  
+   * @param args
+   */
+  public static void main(String[] args) {
     SearchCrawler crawler = new SearchCrawler();
-    crawler.show();
+    crawler.setVisible(true);
   }
 }
